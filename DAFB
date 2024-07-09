@@ -1,0 +1,90 @@
+import streamlit as st
+import pandas as pd
+from openpyxl import load_workbook
+from openpyxl import Workbook
+import shutil
+
+def process_files(input_folder):
+    # Loop through files in the directory
+    for filename in os.listdir(input_folder):
+        if filename.startswith('EXP_FV') and filename.endswith('.xlsx'):
+            full_path = os.path.join(input_folder, filename)
+            
+            # Load the Excel file
+            wb = load_workbook(full_path, data_only=True)
+            
+            # Process 'DUP Queries' sheet
+            if 'DUP Queries' in wb.sheetnames:
+                # Create a new workbook
+                new_wb = Workbook()
+                source_sheet = wb['DUP Queries']
+                new_sheet = new_wb.active
+                new_sheet.title = 'DUP_DAFeedback'
+                for row in source_sheet.iter_rows(values_only=True):
+                    new_sheet.append(row)
+                
+                # Save and clean dataframe
+                output_filename1 = 'DUP_DAFeedback.xlsx'
+                new_wb.save(output_filename1)
+                df1 = pd.read_excel(output_filename1)
+                df1['DA_FEEDBACK'] = df1['DA_FEEDBACK'].str.upper()
+                df_cleaned = df1[df1['DA_FEEDBACK'].notna() & (df1['DA_FEEDBACK'] != '')]
+                columns_to_keep = ['RESPONSE_ID', 'QUERY_ID', 'OLD_VALUE', 'DA_FEEDBACK']
+                df_filtered = df_cleaned[columns_to_keep]
+                df_filtered.to_excel(output_filename1, index=False)
+                
+                # Check feedback
+                column_to_check = 'DA_FEEDBACK'
+                other_values_present = ~df_filtered[column_to_check].isin(['OK', 'CHANGED']).any()
+                if other_values_present:
+                    st.info("'OK' or 'CHANGED' found, FILE IS OK")
+                else:
+                    st.warning("Other feedback found, CHECK THE FILE")
+                
+                # Move the file
+                output_path = os.path.join(input_folder, output_filename1)
+                shutil.move(output_filename1, output_path)
+            
+            # Process 'FV Feedback' sheet
+            if 'FV Feedback' in wb.sheetnames:
+                # Create a new workbook
+                new_wb = Workbook()
+                source_sheet = wb['FV Feedback']
+                new_sheet = new_wb.active
+                new_sheet.title = 'FV_DAFeedback'
+                for row in source_sheet.iter_rows(values_only=True):
+                    new_sheet.append(row)
+                
+                # Save and clean dataframe
+                output_filename2 = 'FV_DAFeedback.xlsx'
+                new_wb.save(output_filename2)
+                df2 = pd.read_excel(output_filename2)
+                df2['DA_FEEDBACK'] = df2['DA_FEEDBACK'].str.upper()
+                df_cleaned2 = df2[df2['DA_FEEDBACK'].notna() & (df2['DA_FEEDBACK'] != '')]
+                columns_to_keep = ['RESPONSE_ID', 'QUERY_ID', 'OLD_VALUE', 'DA_FEEDBACK']
+                df_filtered2 = df_cleaned2[columns_to_keep]
+                df_filtered2.to_excel(output_filename2, index=False)
+                
+                # Check feedback
+                column_to_check = 'DA_FEEDBACK'
+                other_values_present = ~df_filtered2[column_to_check].isin(['OK', 'CHANGED']).any()
+                if other_values_present:
+                    st.info("'OK' or 'CHANGED' found, FILE IS OK")
+                else:
+                    st.warning("Other feedback found, CHECK THE FILE")
+                
+                # Move the file
+                output_path = os.path.join(input_folder, output_filename2)
+                shutil.move(output_filename2, output_path)
+    
+    st.success("Files have been processed successfully.")
+
+# Streamlit UI
+def main():
+    st.title("Get DA_Feedback Files")
+    input_folder = st.text_input("Directory Path:")
+    if st.button("Run"):
+        process_files(input_folder)
+
+if __name__ == "__main__":
+    main()
